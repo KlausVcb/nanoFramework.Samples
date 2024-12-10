@@ -5,6 +5,7 @@
 
 using System;
 using System.Device.Gpio;
+using System.Device.Wifi;
 using System.Diagnostics;
 using System.Net;
 using System.Net.NetworkInformation;
@@ -36,7 +37,7 @@ namespace WifiAP
 
             // If Wireless station is not enabled then start Soft AP to allow Wireless configuration
             // or Button pressed
-            if (setupButton.Read() == PinValue.High)
+            if (true || setupButton.Read() == PinValue.High)
             {
                 WirelessAP.SetWifiAp();
                 _wifiApMode = true;
@@ -52,9 +53,50 @@ namespace WifiAP
                 _server.Start();
             }
 
+            WifiAdapter wifi = WifiAdapter.FindAllAdapters()[0];
+            try
+            {
+                wifi.AvailableNetworksChanged += Wifi_AvailableNetworksChanged;
+                Thread.Sleep(10_000);
+
+                while (true)
+                {
+                    try
+                    {
+                        Debug.WriteLine("starting Wi-Fi scan");
+                        wifi.ScanAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Failure starting a scan operation: {ex}");
+                    }
+
+                    Thread.Sleep(10000);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("message:" + ex.Message);
+                Debug.WriteLine("stack:" + ex.StackTrace);
+            }
             // Just wait for now
             // Here you would have the reset of your program using the client WiFI link
             Thread.Sleep(Timeout.Infinite);
+        }
+
+        private static void Wifi_AvailableNetworksChanged(WifiAdapter sender, object e)
+        {
+            Debug.WriteLine("Wifi_AvailableNetworksChanged - get report");
+
+            // Get Report of all scanned Wifi networks
+            WifiNetworkReport report = sender.NetworkReport;
+
+            // Enumerate though networks looking for our network
+            foreach (WifiAvailableNetwork net in report.AvailableNetworks)
+            {
+                // Show all networks found
+                Debug.WriteLine($"Net SSID :{net.Ssid},  BSSID : {net.Bsid},  rssi : {net.NetworkRssiInDecibelMilliwatts.ToString()},  signal : {net.SignalBars.ToString()}");
+            }
         }
 
         /// <summary>
